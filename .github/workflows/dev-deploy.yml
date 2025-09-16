@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - dev
-    paths:
-      - 'front-end/flutter/**'
+    # paths:
+    #   - 'front-end/flutter/**'
 
 jobs:
   build_and_deploy:
