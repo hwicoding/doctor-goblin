@@ -19,35 +19,36 @@ jobs:
     steps:
       # 1. 소스 코드 체크아웃
       - name: Checkout code
-        uses: actions/checkout@v4 # 최신 버전(v4) 사용 권장
+        uses: actions/checkout@v4
 
       # 2. Flutter 환경 설정
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.1' # 프로젝트에 맞는 Flutter 버전 지정
+          flutter-version: '3.35.1'
 
       # 3. Flutter 의존성 설치
       - name: Install dependencies
         run: flutter pub get
-        working-directory: ./front-end/flutter/doctor_goblin # 작업 디렉토리 지정
+        working-directory: ./front-end/flutter/doctor_goblin
 
       # 4. Flutter 웹 앱 빌드
       - name: Build Flutter web app
         run: flutter build web
-        working-directory: ./front-end/flutter/doctor_goblin # 작업 디렉토리 지정
+        working-directory: ./front-end/flutter/doctor_goblin
 
       # 5. 빌드된 파일을 NAS-PC의 임시 폴더로 복사 (SCP 사용)
       - name: Copy build files to NAS-PC
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
-          port: 49152 # 포트는 host와 분리해서 작성하는 것이 좋습니다.
+          port: 49152
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "front-end/flutter/doctor_goblin/build/web/*" # 복사할 파일 경로
-          target: "C:/temp/dev-app-new" # Windows 서버에 생성될 임시 폴더
-          strip_components: 4 # source 경로에서 상위 4개 폴더를 제외하고 web 안의 내용물만 복사
+          source: "front-end/flutter/doctor_goblin/build/web/*"
+          # [수정] C드라이브 루트 대신, 접속한 유저의 홈 디렉토리(~) 아래에 폴더를 생성
+          target: "~/temp/dev-app-new"
+          strip_components: 4
 
       # 6. NAS-PC에서 원격 스크립트 실행 (SSH 사용)
       - name: Deploy on NAS-PC
@@ -65,7 +66,8 @@ jobs:
 
               try {
                 $targetDir = "C:/tools/nginx-1.29.0/html/dev-app"
-                $sourceDir = "C:/temp/dev-app-new"
+                # [수정] SCP 단계에서 변경된 임시 폴더 경로와 일치시킴 ($HOME은 홈 디렉토리를 의미)
+                $sourceDir = "$HOME/temp/dev-app-new"
 
                 # 기존 배포 폴더가 있는지 확인 후 삭제
                 if (Test-Path $targetDir) {
