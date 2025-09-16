@@ -1,49 +1,90 @@
+# 워크플로우 이름
 name: Deploy Frontend to DEV environment
 
+# 워크플로우 실행 조건
 on:
   push:
     branches:
-      - dev
+      - dev # dev 브랜치에 push 될 때
     paths:
-      - 'front-end/flutter/doctor_goblin/**'
+      - 'front-end/flutter/doctor_goblin/**' # 이 경로에 변경사항이 있을 때만 실행
 
+# 실행될 작업들
 jobs:
   build_and_deploy:
+    # 실행 환경 지정
     runs-on: ubuntu-latest
     
+    # 작업 단계들
     steps:
+      # 1. 소스 코드 체크아웃
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4 # 최신 버전(v4) 사용 권장
 
-      - name: Setup Flutter with FVM
+      # 2. Flutter 환경 설정
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.1'
+          flutter-version: '3.35.1' # 프로젝트에 맞는 Flutter 버전 지정
 
+      # 3. Flutter 의존성 설치
       - name: Install dependencies
         run: flutter pub get
-        working-directory: ./front-end/flutter/doctor_goblin
+        working-directory: ./front-end/flutter/doctor_goblin # 작업 디렉토리 지정
 
+      # 4. Flutter 웹 앱 빌드
       - name: Build Flutter web app
         run: flutter build web
-        working-directory: ./front-end/flutter/doctor_goblin
+        working-directory: ./front-end/flutter/doctor_goblin # 작업 디렉토리 지정
 
-      - name: Deploy to NAS-PC via SSH
+      # 5. 빌드된 파일을 NAS-PC의 임시 폴더로 복사 (SCP 사용)
+      - name: Copy build files to NAS-PC
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: 49152 # 포트는 host와 분리해서 작성하는 것이 좋습니다.
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "front-end/flutter/doctor_goblin/build/web/*" # 복사할 파일 경로
+          target: "C:/temp/dev-app-new" # Windows 서버에 생성될 임시 폴더
+          strip_components: 4 # source 경로에서 상위 4개 폴더를 제외하고 web 안의 내용물만 복사
+
+      # 6. NAS-PC에서 원격 스크립트 실행 (SSH 사용)
+      - name: Deploy on NAS-PC
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}:49152
+          host: ${{ secrets.SSH_HOST }}
+          port: 49152
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # PowerShell 스크립트로 실행
-            $targetDir = "C:/tools/nginx-1.29.0/html/dev-app"
-            $sourceDir = "/home/runner/work/doctor-goblin/doctor-goblin/front-end/flutter/doctor_goblin/build/web"
+            # PowerShell로 전체 스크립트를 실행하도록 명시
+            powershell -Command {
+              # 스크립트 실행 중 오류가 나면 즉시 중단하도록 설정
+              $ErrorActionPreference = "Stop"
 
-            # 기존 폴더 내용 삭제
-            Remove-Item -Path $targetDir -Recurse -Force
-            
-            # 새로운 빌드 파일 복사
-            Copy-Item -Path "$sourceDir/*" -Destination $targetDir -Recurse -Force
+              try {
+                $targetDir = "C:/tools/nginx-1.29.0/html/dev-app"
+                $sourceDir = "C:/temp/dev-app-new"
 
-            # Nginx 재시작
-            & "C:/tools/nginx-1.29.0/nginx.exe" -s reload
+                # 기존 배포 폴더가 있는지 확인 후 삭제
+                if (Test-Path $targetDir) {
+                  Write-Host "Removing old directory: $targetDir"
+                  Remove-Item -Path $targetDir -Recurse -Force
+                }
+                
+                # 임시 폴더의 내용을 실제 배포 폴더로 이동
+                Write-Host "Moving new files from $sourceDir to $targetDir"
+                Move-Item -Path $sourceDir -Destination $targetDir
+                
+                # Nginx 재시작 (관리자 권한으로)
+                Write-Host "Reloading Nginx"
+                Start-Process -FilePath "C:/tools/nginx-1.29.0/nginx.exe" -ArgumentList "-s", "reload" -Verb RunAs -Wait
+                
+                Write-Host "Deployment successful!"
+              } catch {
+                # 오류 발생 시 메시지 출력 후 실패 처리
+                Write-Error "Deployment failed: $_"
+                exit 1
+              }
+            }
