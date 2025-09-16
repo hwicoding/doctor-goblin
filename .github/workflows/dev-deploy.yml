@@ -1,0 +1,45 @@
+name: Deploy Frontend to DEV environment
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'front-end/flutter/**'
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Flutter with FVM
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: ./front-end/flutter
+
+      - name: Build Flutter web app
+        run: flutter build web
+        working-directory: ./front-end/flutter
+
+      - name: Deploy to NAS-PC via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # 기존 빌드 파일 삭제
+            rm -rf "C:/tools/nginx-1.29.0/html/dev-app"
+            
+            # 새로운 빌드 파일 복사
+            cp -r /home/runner/work/doctor-goblin/doctor-goblin/front-end/flutter/build/web/* "C:/tools/nginx-1.29.0/html/dev-app"
+            
+            # Nginx 재시작 (sudo 삭제)
+            nginx.exe -s reload
