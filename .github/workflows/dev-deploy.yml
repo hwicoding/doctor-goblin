@@ -1,5 +1,4 @@
 name: Deploy Frontend to DEV environment
-# This is a test
 
 on:
   push:
