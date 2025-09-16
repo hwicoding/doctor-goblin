@@ -5,9 +5,9 @@ name: Deploy Frontend to DEV environment
 on:
   push:
     branches:
-      - dev # dev 브랜치에 push 될 때
+      - dev
     paths:
-      - 'front-end/flutter/doctor_goblin/**' # 이 경로에 변경사항이 있을 때만 실행
+      - 'front-end/flutter/doctor_goblin/**'
 
 # 실행될 작업들
 jobs:
@@ -46,8 +46,8 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "front-end/flutter/doctor_goblin/build/web/*"
-          # [수정] C드라이브 루트 대신, 접속한 유저의 홈 디렉토리(~) 아래에 폴더를 생성
-          target: "~/temp/dev-app-new"
+          # [수정] '~/'를 제거하고 상대 경로로 지정
+          target: "temp/dev-app-new"
           strip_components: 4
 
       # 6. NAS-PC에서 원격 스크립트 실행 (SSH 사용)
@@ -59,33 +59,27 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # PowerShell로 전체 스크립트를 실행하도록 명시
             powershell -Command {
-              # 스크립트 실행 중 오류가 나면 즉시 중단하도록 설정
               $ErrorActionPreference = "Stop"
 
               try {
                 $targetDir = "C:/tools/nginx-1.29.0/html/dev-app"
-                # [수정] SCP 단계에서 변경된 임시 폴더 경로와 일치시킴 ($HOME은 홈 디렉토리를 의미)
+                # PowerShell의 $HOME 변수는 정상적으로 작동하므로 이 부분은 수정할 필요 없습니다.
                 $sourceDir = "$HOME/temp/dev-app-new"
 
-                # 기존 배포 폴더가 있는지 확인 후 삭제
                 if (Test-Path $targetDir) {
                   Write-Host "Removing old directory: $targetDir"
                   Remove-Item -Path $targetDir -Recurse -Force
                 }
                 
-                # 임시 폴더의 내용을 실제 배포 폴더로 이동
                 Write-Host "Moving new files from $sourceDir to $targetDir"
                 Move-Item -Path $sourceDir -Destination $targetDir
                 
-                # Nginx 재시작 (관리자 권한으로)
                 Write-Host "Reloading Nginx"
                 Start-Process -FilePath "C:/tools/nginx-1.29.0/nginx.exe" -ArgumentList "-s", "reload" -Verb RunAs -Wait
                 
                 Write-Host "Deployment successful!"
               } catch {
-                # 오류 발생 시 메시지 출력 후 실패 처리
                 Write-Error "Deployment failed: $_"
                 exit 1
               }
