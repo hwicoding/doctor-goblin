@@ -35,11 +35,15 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 기존 빌드 파일 삭제
-            rm -rf "C:/tools/nginx-1.29.0/html/dev-app"
+            # PowerShell 스크립트로 실행
+            $targetDir = "C:/tools/nginx-1.29.0/html/dev-app"
+            $sourceDir = "/home/runner/work/doctor-goblin/doctor-goblin/front-end/flutter/doctor_goblin/build/web"
+
+            # 기존 폴더 내용 삭제
+            Remove-Item -Path $targetDir -Recurse -Force
             
             # 새로운 빌드 파일 복사
-            cp -r /home/runner/work/doctor-goblin/doctor-goblin/front-end/flutter/doctor_goblin/build/web/* "C:/tools/nginx-1.29.0/html/dev-app"
-            
+            Copy-Item -Path "$sourceDir/*" -Destination $targetDir -Recurse -Force
+
             # Nginx 재시작
-            nginx.exe -s reload
+            & "C:/tools/nginx-1.29.0/nginx.exe" -s reload
