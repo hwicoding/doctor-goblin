@@ -37,7 +37,19 @@ jobs:
         run: flutter build web
         working-directory: ./front-end/flutter/doctor_goblin
 
-      # 5. 빌드된 파일을 NAS-PC의 임시 폴더로 복사 (SCP 사용)
+      # 5. [추가] NAS-PC에 배포할 임시 폴더 생성
+      - name: Create temporary directory on NAS-PC
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: 49152
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # PowerShell의 New-Item 명령어로 폴더를 생성. -Force 옵션은 상위 폴더(temp)가 없으면 같이 만들어 줌.
+            powershell -Command "New-Item -ItemType Directory -Force -Path '$HOME/temp/dev-app-new'"
+
+      # 6. 생성된 폴더에 빌드 결과물 복사 (SCP 사용)
       - name: Copy build files to NAS-PC
         uses: appleboy/scp-action@master
         with:
@@ -46,11 +58,10 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "front-end/flutter/doctor_goblin/build/web/*"
-          # [수정] '~/'를 제거하고 상대 경로로 지정
           target: "temp/dev-app-new"
           strip_components: 4
 
-      # 6. NAS-PC에서 원격 스크립트 실행 (SSH 사용)
+      # 7. NAS-PC에서 배포 스크립트 실행 (SSH 사용)
       - name: Deploy on NAS-PC
         uses: appleboy/ssh-action@master
         with:
@@ -64,7 +75,6 @@ jobs:
 
               try {
                 $targetDir = "C:/tools/nginx-1.29.0/html/dev-app"
-                # PowerShell의 $HOME 변수는 정상적으로 작동하므로 이 부분은 수정할 필요 없습니다.
                 $sourceDir = "$HOME/temp/dev-app-new"
 
                 if (Test-Path $targetDir) {
