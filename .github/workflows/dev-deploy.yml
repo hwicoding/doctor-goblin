@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - dev
-    paths:
-      - 'front-end/flutter/doctor_goblin/**'
+    # paths:
+    #   - 'front-end/flutter/doctor_goblin/**'
 
 jobs:
   build_and_deploy:
@@ -41,5 +41,5 @@ jobs:
             # 새로운 빌드 파일 복사
             cp -r /home/runner/work/doctor-goblin/doctor-goblin/front-end/flutter/doctor_goblin/build/web/* "C:/tools/nginx-1.29.0/html/dev-app"
             
-            # Nginx 재시작 (sudo 삭제)
+            # Nginx 재시작
             nginx.exe -s reload
