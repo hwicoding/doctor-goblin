@@ -7,7 +7,7 @@ class Home extends StatelessWidget {
   Widget build(BuildContext context) {
     return  Scaffold(
       appBar: AppBar(
-        title: Text('테클놀로지아'),
+        title: Text('지친다'),
       ),
     );
   }
