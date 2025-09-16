@@ -1,11 +1,12 @@
 name: Deploy Frontend to DEV environment
+# This is a test
 
 on:
   push:
     branches:
       - dev
-    # paths:
-    #   - 'front-end/flutter/doctor_goblin/**'
+    paths:
+      - 'front-end/flutter/doctor_goblin/**'
 
 jobs:
   build_and_deploy:
